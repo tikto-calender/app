@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="TikTo — task và calendar gọn nhẹ." />
+    <title>TikTo — Make time feel lighter</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <a class="brand" href="#" aria-label="TikTo home">
+          <span class="brand-mark">T</span>
+          <span>TikTo</span>
+        </a>
+        <nav aria-label="Điều hướng chính">
+          <button class="nav-item active" data-view="today"><span>◫</span> Hôm nay</button>
+          <button class="nav-item" data-view="tasks"><span>✓</span> Công việc</button>
+          <button class="nav-item" data-view="calendar"><span>◇</span> Lịch</button>
+        </nav>
+        <div class="sidebar-note">
+          <span class="pulse"></span>
+          <div><strong>Local mode</strong><small>Dữ liệu lưu trong app</small></div>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="today-label"></p>
+            <h1 id="page-title">Một ngày thật nhẹ.</h1>
+          </div>
+          <div class="top-actions">
+            <span class="clock" id="clock"></span>
+            <button class="primary" id="quick-add">+ Thêm mới</button>
+          </div>
+        </header>
+
+        <section id="today-view" class="view active">
+          <div class="hero-card">
+            <div>
+              <p class="eyebrow">TỔNG QUAN</p>
+              <h2>Chọn ít hơn.<br />Hoàn thành tốt hơn.</h2>
+              <p id="focus-copy">Bạn chưa có công việc nào cho hôm nay.</p>
+            </div>
+            <div class="progress-ring" aria-label="Tiến độ hôm nay">
+              <span id="progress-value">0%</span>
+              <small>hoàn thành</small>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <article><span class="stat-icon mint">✓</span><div><strong id="open-count">0</strong><small>Việc đang mở</small></div></article>
+            <article><span class="stat-icon blue">◇</span><div><strong id="event-count">0</strong><small>Sự kiện sắp tới</small></div></article>
+            <article><span class="stat-icon orange">!</span><div><strong id="due-count">0</strong><small>Sắp đến hạn</small></div></article>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">ƯU TIÊN</p><h3>Công việc gần nhất</h3></div><button class="text-button" data-go="tasks">Xem tất cả →</button></div>
+              <div id="today-tasks" class="item-list"></div>
+            </section>
+            <section class="panel warm">
+              <div class="panel-heading"><div><p class="eyebrow">TIẾP THEO</p><h3>Lịch trình</h3></div><button class="text-button" data-go="calendar">Mở lịch →</button></div>
+              <div id="today-events" class="timeline"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="tasks-view" class="view">
+          <div class="section-heading"><div><p class="eyebrow">CÔNG VIỆC</p><h2>Mọi việc cần làm</h2></div><button class="primary" data-open="task">+ Công việc</button></div>
+          <div class="filter-row">
+            <button class="filter active" data-filter="ALL">Tất cả</button>
+            <button class="filter" data-filter="TODO">Cần làm</button>
+            <button class="filter" data-filter="IN_PROGRESS">Đang làm</button>
+            <button class="filter" data-filter="DONE">Hoàn thành</button>
+          </div>
+          <div id="task-list" class="board-list"></div>
+        </section>
+
+        <section id="calendar-view" class="view">
+          <div class="section-heading"><div><p class="eyebrow">LỊCH</p><h2>Những điều sắp tới</h2></div><button class="primary" data-open="event">+ Sự kiện</button></div>
+          <div id="calendar-list" class="calendar-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="task-dialog">
+      <form id="task-form">
+        <div class="dialog-heading"><div><p class="eyebrow">CÔNG VIỆC MỚI</p><h2>Thêm một việc cần làm</h2></div><button type="button" class="icon-button" data-close>×</button></div>
+        <label>Tiêu đề<input name="title" maxlength="120" required placeholder="Ví dụ: Hoàn thành báo cáo" /></label>
+        <label>Mô tả<textarea name="description" rows="3" maxlength="1000" placeholder="Ghi chú ngắn..."></textarea></label>
+        <div class="form-grid">
+          <label>Hạn hoàn thành<input name="dueAt" type="datetime-local" /></label>
+          <label>Độ ưu tiên<select name="priority"><option value="LOW">Thấp</option><option value="MEDIUM" selected>Vừa</option><option value="HIGH">Cao</option></select></label>
+        </div>
+        <p class="form-error" aria-live="polite"></p>
+        <div class="dialog-actions"><button type="button" class="secondary" data-close>Huỷ</button><button class="primary" type="submit">Lưu công việc</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="event-dialog">
+      <form id="event-form">
+        <div class="dialog-heading"><div><p class="eyebrow">SỰ KIỆN MỚI</p><h2>Đặt một khoảng thời gian</h2></div><button type="button" class="icon-button" data-close>×</button></div>
+        <label>Tiêu đề<input name="title" maxlength="120" required placeholder="Ví dụ: Họp nhóm sản phẩm" /></label>
+        <label>Mô tả<textarea name="description" rows="3" maxlength="1000" placeholder="Thông tin cần nhớ..."></textarea></label>
+        <div class="form-grid">
+          <label>Bắt đầu<input name="startAt" type="datetime-local" required /></label>
+          <label>Kết thúc<input name="endAt" type="datetime-local" required /></label>
+        </div>
+        <label>Màu sắc<select name="color"><option value="mint">Mint</option><option value="blue">Xanh</option><option value="orange">Cam</option><option value="pink">Hồng</option></select></label>
+        <p class="form-error" aria-live="polite"></p>
+        <div class="dialog-actions"><button type="button" class="secondary" data-close>Huỷ</button><button class="primary" type="submit">Lưu sự kiện</button></div>
+      </form>
+    </dialog>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
