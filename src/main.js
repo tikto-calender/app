@@ -1,11 +1,37 @@
-const state = { tasks: [], events: [], view: "today", taskFilter: "ALL" };
+import "./styles.css";
+
+const API_ORIGIN = (import.meta.env.VITE_API_ORIGIN ?? "").replace(/\/$/, "");
+const state = { tasks: [], events: [], view: "today", taskFilter: "ALL", dashboardRange: "day" };
 
 const formatDate = (value, options = {}) => value ? new Intl.DateTimeFormat("vi-VN", options).format(new Date(value)) : "Chưa đặt hạn";
 const formatTime = (value) => formatDate(value, { hour: "2-digit", minute: "2-digit" });
 const escapeHtml = (value = "") => value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 
+function dashboardWindow(mode, reference = new Date()) {
+  const start = new Date(reference);
+  start.setHours(0, 0, 0, 0);
+
+  if (mode === "week") {
+    const mondayOffset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+  }
+
+  if (mode === "month") start.setDate(1);
+
+  const end = new Date(start);
+  if (mode === "day") end.setDate(end.getDate() + 1);
+  if (mode === "week") end.setDate(end.getDate() + 7);
+  if (mode === "month") end.setMonth(end.getMonth() + 1);
+  return { start, end };
+}
+
+function isInsideWindow(value, window) {
+  const date = new Date(value);
+  return date >= window.start && date < window.end;
+}
+
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await fetch(`${API_ORIGIN}${path}`, {
     ...options,
     headers: options.body ? { "Content-Type": "application/json", ...options.headers } : options.headers,
   });
@@ -15,10 +41,36 @@ async function api(path, options = {}) {
 }
 
 async function loadData() {
-  const data = await api("/api/overview");
+  const [data, runtime] = await Promise.all([api("/api/overview"), api("/api/runtime")]);
   state.tasks = data.tasks;
   state.events = data.events;
+  renderRuntime(runtime);
   render();
+}
+
+function renderRuntime(runtime) {
+  const environment = String(runtime.environment || "local").toUpperCase();
+  document.querySelector("#runtime-mode").textContent = `${environment} · v${runtime.version || "dev"}`;
+  document.querySelector("#runtime-image").textContent = `image: ${runtime.image || "local"} · ${runtime.store || "local"} db`;
+}
+
+function setServiceState(element, state, detail) {
+  element.dataset.serviceState = state;
+  element.querySelector("small").textContent = detail;
+}
+
+async function loadServiceStatus() {
+  const items = document.querySelectorAll(".service-item");
+  items.forEach((item) => setServiceState(item, "checking", "Checking…"));
+  const status = await api("/api/status");
+  const [databaseItem, notificationItem] = items;
+  const databaseDetail = `${status.database.backend} db · ${status.database.latencyMs}ms`;
+  setServiceState(databaseItem, status.database.status, databaseDetail);
+
+  const notificationDetail = status.notification.status === "disabled"
+    ? "Chưa cấu hình URL"
+    : `${status.notification.backend || "service"} · ${status.notification.latencyMs}ms`;
+  setServiceState(notificationItem, status.notification.status, notificationDetail);
 }
 
 function showToast(message) {
@@ -48,22 +100,33 @@ function eventHtml(event, compact = false) {
 }
 
 function renderToday() {
-  const now = new Date();
-  const todayKey = now.toDateString();
-  const todayTasks = [...state.tasks].filter((task) => !task.dueAt || new Date(task.dueAt).toDateString() === todayKey).sort((a, b) => (a.dueAt || "z").localeCompare(b.dueAt || "z"));
-  const upcomingEvents = [...state.events].filter((event) => new Date(event.endAt) >= now).sort((a, b) => a.startAt.localeCompare(b.startAt));
-  const done = todayTasks.filter((task) => task.status === "DONE").length;
-  const progress = todayTasks.length ? Math.round(done / todayTasks.length * 100) : 0;
-  const dueSoon = state.tasks.filter((task) => task.status !== "DONE" && task.dueAt && new Date(task.dueAt) - now < 86_400_000 && new Date(task.dueAt) >= now).length;
+  const window = dashboardWindow(state.dashboardRange);
+  const rangeTasks = [...state.tasks]
+    .filter((task) => task.dueAt ? isInsideWindow(task.dueAt, window) : state.dashboardRange === "day")
+    .sort((a, b) => (a.dueAt || "z").localeCompare(b.dueAt || "z"));
+  const rangeEvents = [...state.events]
+    .filter((event) => new Date(event.endAt) >= window.start && new Date(event.startAt) < window.end)
+    .sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const done = rangeTasks.filter((task) => task.status === "DONE").length;
+  const progress = rangeTasks.length ? Math.round(done / rangeTasks.length * 100) : 0;
+  const dueInRange = rangeTasks.filter((task) => task.status !== "DONE" && task.dueAt).length;
+  const labels = {
+    day: { label: "Hôm nay", eyebrow: "TỔNG QUAN NGÀY", noun: "hôm nay" },
+    week: { label: "Tuần này", eyebrow: "TỔNG QUAN TUẦN", noun: "tuần này" },
+    month: { label: "Tháng này", eyebrow: "TỔNG QUAN THÁNG", noun: "tháng này" },
+  };
+  const copy = labels[state.dashboardRange];
 
-  document.querySelector("#open-count").textContent = state.tasks.filter((task) => task.status !== "DONE").length;
-  document.querySelector("#event-count").textContent = upcomingEvents.length;
-  document.querySelector("#due-count").textContent = dueSoon;
+  document.querySelector("#range-label").textContent = copy.label;
+  document.querySelector("#range-eyebrow").textContent = copy.eyebrow;
+  document.querySelector("#open-count").textContent = rangeTasks.filter((task) => task.status !== "DONE").length;
+  document.querySelector("#event-count").textContent = rangeEvents.length;
+  document.querySelector("#due-count").textContent = dueInRange;
   document.querySelector("#progress-value").textContent = `${progress}%`;
   document.querySelector(".progress-ring").style.setProperty("--progress", `${progress}%`);
-  document.querySelector("#focus-copy").textContent = todayTasks.length ? `Bạn có ${todayTasks.length - done} việc còn lại trong nhịp hôm nay.` : "Bạn chưa có công việc nào cho hôm nay.";
-  document.querySelector("#today-tasks").innerHTML = todayTasks.length ? todayTasks.slice(0, 4).map((task) => taskHtml(task, true)).join("") : empty("Một ngày trống — thêm việc đầu tiên nhé.");
-  document.querySelector("#today-events").innerHTML = upcomingEvents.length ? upcomingEvents.slice(0, 4).map((event) => eventHtml(event, true)).join("") : empty("Chưa có sự kiện sắp tới.");
+  document.querySelector("#focus-copy").textContent = rangeTasks.length ? `Bạn có ${rangeTasks.length - done} việc còn lại trong ${copy.noun}.` : `Bạn chưa có công việc nào cho ${copy.noun}.`;
+  document.querySelector("#today-tasks").innerHTML = rangeTasks.length ? rangeTasks.slice(0, 4).map((task) => taskHtml(task, true)).join("") : empty(`Chưa có công việc nào trong ${copy.noun}.`);
+  document.querySelector("#today-events").innerHTML = rangeEvents.length ? rangeEvents.slice(0, 4).map((event) => eventHtml(event, true)).join("") : empty(`Chưa có sự kiện nào trong ${copy.noun}.`);
 }
 
 function renderTasks() {
@@ -92,7 +155,7 @@ function switchView(view) {
   state.view = view;
   document.querySelectorAll(".view").forEach((element) => element.classList.toggle("active", element.id === `${view}-view`));
   document.querySelectorAll(".nav-item").forEach((element) => element.classList.toggle("active", element.dataset.view === view));
-  const titles = { today: "Một ngày thật nhẹ.", tasks: "Tập trung vào điều quan trọng.", calendar: "Nhìn trước, sống trọn." };
+  const titles = { today: "Dashboard của bạn.", tasks: "Tập trung vào điều quan trọng.", calendar: "Nhìn trước, sống trọn." };
   document.querySelector("#page-title").textContent = titles[view];
 }
 
@@ -118,6 +181,15 @@ document.addEventListener("click", async (event) => {
   if (target.dataset.open) openDialog(target.dataset.open);
   if (target.id === "quick-add") openDialog(state.view === "calendar" ? "event" : "task");
   if (target.hasAttribute("data-close")) target.closest("dialog").close();
+  if (target.dataset.range) {
+    state.dashboardRange = target.dataset.range;
+    document.querySelectorAll(".range-option").forEach((button) => {
+      const active = button === target;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    renderToday();
+  }
   if (target.dataset.filter) {
     state.taskFilter = target.dataset.filter;
     document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button === target));
@@ -125,6 +197,17 @@ document.addEventListener("click", async (event) => {
   }
 
   try {
+    if (target.id === "refresh-services") {
+      await loadServiceStatus();
+      showToast("Đã cập nhật trạng thái service.");
+    }
+    if (target.id === "test-notification") {
+      target.disabled = true;
+      await api("/api/notifications/test", { method: "POST", body: JSON.stringify({}) });
+      showToast("Đã gửi notification test.");
+      await loadServiceStatus();
+      target.disabled = false;
+    }
     if (target.dataset.toggleTask) {
       const task = state.tasks.find((item) => item.id === target.dataset.toggleTask);
       await api(`/api/tasks/${task.id}`, { method: "PATCH", body: JSON.stringify({ status: task.status === "DONE" ? "TODO" : "DONE" }) });
@@ -140,7 +223,10 @@ document.addEventListener("click", async (event) => {
       await loadData();
       showToast("Đã xoá sự kiện.");
     }
-  } catch (error) { showToast(error.message); }
+  } catch (error) {
+    if (target.id === "test-notification") target.disabled = false;
+    showToast(error.message);
+  }
 });
 
 function bindForm(kind) {
@@ -168,3 +254,7 @@ window.setInterval(updateClock, 30_000);
 bindForm("task");
 bindForm("event");
 loadData().catch((error) => showToast(error.message));
+loadServiceStatus().catch(() => {
+  const items = document.querySelectorAll(".service-item");
+  items.forEach((item) => setServiceState(item, "down", "Không thể kiểm tra"));
+});

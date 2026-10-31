@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="TikTo — task và calendar gọn nhẹ." />
     <title>TikTo — Make time feel lighter</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div class="shell">
@@ -15,13 +17,13 @@
           <span>TikTo</span>
         </a>
         <nav aria-label="Điều hướng chính">
-          <button class="nav-item active" data-view="today"><span>◫</span> Hôm nay</button>
+          <button class="nav-item active" data-view="today"><span>▦</span> Dashboard</button>
           <button class="nav-item" data-view="tasks"><span>✓</span> Công việc</button>
           <button class="nav-item" data-view="calendar"><span>◇</span> Lịch</button>
         </nav>
         <div class="sidebar-note">
           <span class="pulse"></span>
-          <div><strong>Local mode</strong><small>Dữ liệu lưu trong app</small></div>
+          <div><strong id="runtime-mode">LOCAL · v1.1.0</strong><small id="runtime-image">image: local · local db</small></div>
         </div>
       </aside>
 
@@ -29,7 +31,7 @@
         <header class="topbar">
           <div>
             <p class="eyebrow" id="today-label"></p>
-            <h1 id="page-title">Một ngày thật nhẹ.</h1>
+            <h1 id="page-title">Dashboard của bạn.</h1>
           </div>
           <div class="top-actions">
             <span class="clock" id="clock"></span>
@@ -38,9 +40,42 @@
         </header>
 
         <section id="today-view" class="view active">
+          <div class="dashboard-toolbar">
+            <div>
+              <p class="eyebrow">DASHBOARD</p>
+              <strong id="range-label">Hôm nay</strong>
+            </div>
+            <div class="range-switch" role="group" aria-label="Khoảng thời gian dashboard">
+              <button class="range-option active" type="button" data-range="day" aria-pressed="true">Day</button>
+              <button class="range-option" type="button" data-range="week" aria-pressed="false">Week</button>
+              <button class="range-option" type="button" data-range="month" aria-pressed="false">Month</button>
+            </div>
+          </div>
+          <section class="service-card" aria-labelledby="service-title">
+            <div class="service-heading">
+              <div>
+                <p class="eyebrow">SYSTEM STATUS</p>
+                <h3 id="service-title">Database & Notification</h3>
+              </div>
+              <div class="service-actions">
+                <button class="secondary compact" type="button" id="refresh-services">Check health</button>
+                <button class="primary compact" type="button" id="test-notification">Test notification</button>
+              </div>
+            </div>
+            <div class="service-grid" id="service-status" role="status" aria-live="polite">
+              <div class="service-item" data-service-state="checking">
+                <span class="status-light"></span>
+                <div><strong>Database</strong><small id="database-health">Checking…</small></div>
+              </div>
+              <div class="service-item" data-service-state="checking">
+                <span class="status-light"></span>
+                <div><strong>Notification</strong><small id="notification-health">Checking…</small></div>
+              </div>
+            </div>
+          </section>
           <div class="hero-card">
             <div>
-              <p class="eyebrow">TỔNG QUAN</p>
+              <p class="eyebrow" id="range-eyebrow">TỔNG QUAN NGÀY</p>
               <h2>Chọn ít hơn.<br />Hoàn thành tốt hơn.</h2>
               <p id="focus-copy">Bạn chưa có công việc nào cho hôm nay.</p>
             </div>
@@ -51,9 +86,9 @@
           </div>
 
           <div class="stats-grid">
-            <article><span class="stat-icon mint">✓</span><div><strong id="open-count">0</strong><small>Việc đang mở</small></div></article>
-            <article><span class="stat-icon blue">◇</span><div><strong id="event-count">0</strong><small>Sự kiện sắp tới</small></div></article>
-            <article><span class="stat-icon orange">!</span><div><strong id="due-count">0</strong><small>Sắp đến hạn</small></div></article>
+            <article><span class="stat-icon mint">✓</span><div><strong id="open-count">0</strong><small>Việc chưa xong</small></div></article>
+            <article><span class="stat-icon blue">◇</span><div><strong id="event-count">0</strong><small>Sự kiện trong kỳ</small></div></article>
+            <article><span class="stat-icon orange">!</span><div><strong id="due-count">0</strong><small>Đến hạn trong kỳ</small></div></article>
           </div>
 
           <div class="content-grid">
@@ -88,7 +123,7 @@
 
     <dialog id="task-dialog">
       <form id="task-form">
-        <div class="dialog-heading"><div><p class="eyebrow">CÔNG VIỆC MỚI</p><h2>Thêm một việc cần làm</h2></div><button type="button" class="icon-button" data-close>×</button></div>
+        <div class="dialog-heading"><div><p class="eyebrow">CÔNG VIỆC MỚI</p><h2>Thêm một việc cần làm</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng hộp thoại">×</button></div>
         <label>Tiêu đề<input name="title" maxlength="120" required placeholder="Ví dụ: Hoàn thành báo cáo" /></label>
         <label>Mô tả<textarea name="description" rows="3" maxlength="1000" placeholder="Ghi chú ngắn..."></textarea></label>
         <div class="form-grid">
@@ -102,7 +137,7 @@
 
     <dialog id="event-dialog">
       <form id="event-form">
-        <div class="dialog-heading"><div><p class="eyebrow">SỰ KIỆN MỚI</p><h2>Đặt một khoảng thời gian</h2></div><button type="button" class="icon-button" data-close>×</button></div>
+        <div class="dialog-heading"><div><p class="eyebrow">SỰ KIỆN MỚI</p><h2>Đặt một khoảng thời gian</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng hộp thoại">×</button></div>
         <label>Tiêu đề<input name="title" maxlength="120" required placeholder="Ví dụ: Họp nhóm sản phẩm" /></label>
         <label>Mô tả<textarea name="description" rows="3" maxlength="1000" placeholder="Thông tin cần nhớ..."></textarea></label>
         <div class="form-grid">
@@ -116,6 +151,6 @@
     </dialog>
 
     <div id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>

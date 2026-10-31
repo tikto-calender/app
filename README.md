@@ -1,34 +1,24 @@
-# TikTo App
+# TikTo Frontend
 
-Web app độc lập, tối giản, không cần framework hoặc database ngoài. App cung cấp UI và JSON API cho task/calendar; dữ liệu được lưu trong `data/store.json`.
+Static frontend built with Vite and vanilla JavaScript. The production artifact is `dist/`, suitable for a private S3 bucket served through CloudFront.
 
-Đây là một source/repository riêng. Notification được đặt trong source `TikTo-Notification-Service` và hiện chưa được nối vào app.
+## Local development
 
-## Chạy local
-
-Yêu cầu Node.js 22 trở lên.
+Run the backend on port `3000`, then:
 
 ```bash
-npm start
-```
-
-Mở `http://localhost:3000`.
-
-Có thể đổi port bằng biến môi trường `PORT`.
-
-Chế độ tự reload server:
-
-```bash
+npm install
 npm run dev
 ```
 
-## API
+Vite serves the UI at `http://localhost:5173` and proxies `/api/*` to `http://localhost:3000`.
 
-- `GET /api/health`
-- `GET /api/overview`
-- `GET|POST /api/tasks`
-- `PATCH|DELETE /api/tasks/:id`
-- `GET|POST /api/events`
-- `PATCH|DELETE /api/events/:id`
+## Production build
 
-File JSON chỉ phù hợp local, demo và một process. Khi phát triển tiếp, thay module `src/store.mjs` bằng PostgreSQL mà không cần đổi giao diện API.
+```bash
+npm run build
+```
+
+Upload the generated `dist/` directory to S3. With one CloudFront distribution, route the default behavior to S3 and `/api/*` to the backend origin. Leave `VITE_API_ORIGIN` empty so requests remain same-origin.
+
+Do not place secrets or AWS credentials in any `VITE_*` variable; those values are embedded in browser assets.
