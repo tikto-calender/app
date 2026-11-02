@@ -1,39 +1,42 @@
 import "./styles.css";
+import packageMetadata from "../package.json";
+import { dashboardWindow, isInsideWindow } from "./dashboard-window.js";
 
 const API_ORIGIN = (import.meta.env.VITE_API_ORIGIN ?? "").replace(/\/$/, "");
-const state = { tasks: [], events: [], view: "today", taskFilter: "ALL", dashboardRange: "day" };
+const APP_VERSION = packageMetadata.version;
+const state = {
+  tasks: [],
+  events: [],
+  view: "today",
+  taskFilter: "ALL",
+  dashboardRange: "day",
+  backendVersion: "unknown",
+  notificationVersion: "checking",
+  backendConnection: "checking",
+  notificationConnection: "checking",
+};
 
-const formatDate = (value, options = {}) => value ? new Intl.DateTimeFormat("vi-VN", options).format(new Date(value)) : "Chưa đặt hạn";
-const formatTime = (value) => formatDate(value, { hour: "2-digit", minute: "2-digit" });
-const escapeHtml = (value = "") => value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
-
-function dashboardWindow(mode, reference = new Date()) {
-  const start = new Date(reference);
-  start.setHours(0, 0, 0, 0);
-
-  if (mode === "week") {
-    const mondayOffset = (start.getDay() + 6) % 7;
-    start.setDate(start.getDate() - mondayOffset);
-  }
-
-  if (mode === "month") start.setDate(1);
-
-  const end = new Date(start);
-  if (mode === "day") end.setDate(end.getDate() + 1);
-  if (mode === "week") end.setDate(end.getDate() + 7);
-  if (mode === "month") end.setMonth(end.getMonth() + 1);
-  return { start, end };
-}
-
-function isInsideWindow(value, window) {
-  const date = new Date(value);
-  return date >= window.start && date < window.end;
-}
+const formatDate = (value, options = {}) =>
+  value
+    ? new Intl.DateTimeFormat("vi-VN", options).format(new Date(value))
+    : "Chưa đặt hạn";
+const formatTime = (value) =>
+  formatDate(value, { hour: "2-digit", minute: "2-digit" });
+const escapeHtml = (value = "") =>
+  value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[
+        character
+      ],
+  );
 
 async function api(path, options = {}) {
   const response = await fetch(`${API_ORIGIN}${path}`, {
     ...options,
-    headers: options.body ? { "Content-Type": "application/json", ...options.headers } : options.headers,
+    headers: options.body
+      ? { "Content-Type": "application/json", ...options.headers }
+      : options.headers,
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error ?? "Có lỗi xảy ra.");
@@ -41,7 +44,10 @@ async function api(path, options = {}) {
 }
 
 async function loadData() {
-  const [data, runtime] = await Promise.all([api("/api/overview"), api("/api/runtime")]);
+  const [data, runtime] = await Promise.all([
+    api("/api/overview"),
+    api("/api/runtime"),
+  ]);
   state.tasks = data.tasks;
   state.events = data.events;
   renderRuntime(runtime);
@@ -49,9 +55,34 @@ async function loadData() {
 }
 
 function renderRuntime(runtime) {
-  const environment = String(runtime.environment || "local").toUpperCase();
-  document.querySelector("#runtime-mode").textContent = `${environment} · v${runtime.version || "dev"}`;
-  document.querySelector("#runtime-image").textContent = `image: ${runtime.image || "local"} · ${runtime.store || "local"} db`;
+  state.backendVersion = runtime.version || "unknown";
+  document.querySelector("#frontend-version").textContent = `v${APP_VERSION}`;
+  renderServiceVersions();
+}
+
+function renderServiceVersions() {
+  const connectionLabel = {
+    checking: "Đang kiểm tra",
+    connected: "Kết nối",
+    disconnected: "Mất kết nối",
+  };
+  const displayVersion = (version) =>
+    ["unknown", "checking", "disabled"].includes(version) ? "—" : `v${version}`;
+  document.querySelector("#backend-version").textContent = displayVersion(
+    state.backendVersion,
+  );
+  document.querySelector("#notification-version").textContent = displayVersion(
+    state.notificationVersion,
+  );
+  const backendConnection = document.querySelector("#backend-connection");
+  backendConnection.textContent = connectionLabel[state.backendConnection];
+  backendConnection.dataset.state = state.backendConnection;
+  const notificationConnection = document.querySelector(
+    "#notification-connection",
+  );
+  notificationConnection.textContent =
+    connectionLabel[state.notificationConnection];
+  notificationConnection.dataset.state = state.notificationConnection;
 }
 
 function setServiceState(element, state, detail) {
@@ -62,15 +93,55 @@ function setServiceState(element, state, detail) {
 async function loadServiceStatus() {
   const items = document.querySelectorAll(".service-item");
   items.forEach((item) => setServiceState(item, "checking", "Checking…"));
-  const status = await api("/api/status");
-  const [databaseItem, notificationItem] = items;
-  const databaseDetail = `${status.database.backend} db · ${status.database.latencyMs}ms`;
-  setServiceState(databaseItem, status.database.status, databaseDetail);
+  state.backendConnection = "checking";
+  state.notificationConnection = "checking";
+  renderServiceVersions();
+  const startedAt = performance.now();
+  try {
+    const status = await api("/api/status");
+    const requestLatencyMs = Math.round(performance.now() - startedAt);
+    const [backendItem, databaseItem, notificationItem] = items;
+    state.backendVersion = status.backend.version || state.backendVersion;
+    state.backendConnection =
+      status.backend.status === "ok" ? "connected" : "disconnected";
+    const backendDetail = `v${state.backendVersion} · ${requestLatencyMs}ms`;
+    setServiceState(backendItem, status.backend.status, backendDetail);
 
-  const notificationDetail = status.notification.status === "disabled"
-    ? "Chưa cấu hình URL"
-    : `${status.notification.backend || "service"} · ${status.notification.latencyMs}ms`;
-  setServiceState(notificationItem, status.notification.status, notificationDetail);
+    state.notificationVersion =
+      status.notification.status === "disabled"
+        ? "disabled"
+        : status.notification.version || "unknown";
+    state.notificationConnection = ["ok", "degraded"].includes(
+      status.notification.status,
+    )
+      ? "connected"
+      : "disconnected";
+    renderServiceVersions();
+    const databaseDetail = `${status.database.backend} db · ${status.database.latencyMs}ms`;
+    setServiceState(databaseItem, status.database.status, databaseDetail);
+
+    const account = status.notification.account;
+    const accountDetail = account?.connected
+      ? `${account.provider} · ${account.name}`
+      : "Chưa kết nối tài khoản";
+    const notificationDetail =
+      status.notification.status === "disabled"
+        ? "Service chưa cấu hình"
+        : `v${status.notification.version || "unknown"} · ${accountDetail} · ${status.notification.latencyMs}ms`;
+    const notificationState =
+      status.notification.status === "ok" && !account?.connected
+        ? "degraded"
+        : status.notification.status;
+    setServiceState(notificationItem, notificationState, notificationDetail);
+  } catch (error) {
+    items.forEach((item) =>
+      setServiceState(item, "down", "Không thể kiểm tra"),
+    );
+    state.backendConnection = "disconnected";
+    state.notificationConnection = "disconnected";
+    renderServiceVersions();
+    throw error;
+  }
 }
 
 function showToast(message) {
@@ -86,7 +157,9 @@ function empty(message) {
 
 function taskHtml(task, compact = false) {
   const done = task.status === "DONE";
-  const priorityLabel = { LOW: "Thấp", MEDIUM: "Vừa", HIGH: "Cao" }[task.priority];
+  const priorityLabel = { LOW: "Thấp", MEDIUM: "Vừa", HIGH: "Cao" }[
+    task.priority
+  ];
   return `<article class="task-row ${done ? "done" : ""}">
     <button class="check" data-toggle-task="${task.id}" aria-label="${done ? "Mở lại" : "Hoàn thành"}">✓</button>
     <div><p class="item-title">${escapeHtml(task.title)}</p><p class="item-meta">${task.dueAt ? formatDate(task.dueAt, { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "Không có hạn"}${compact ? "" : ` · <span class="priority">${priorityLabel}</span>`}</p></div>
@@ -95,54 +168,105 @@ function taskHtml(task, compact = false) {
 }
 
 function eventHtml(event, compact = false) {
-  if (compact) return `<article class="event-row"><span class="event-time">${formatTime(event.startAt)}</span><span class="event-dot ${event.color}"></span><div><p class="item-title">${escapeHtml(event.title)}</p><p class="item-meta">${escapeHtml(event.description || "Không có ghi chú")}</p></div><button class="delete" data-delete-event="${event.id}" aria-label="Xoá sự kiện">×</button></article>`;
+  if (compact)
+    return `<article class="event-row"><span class="event-time">${formatTime(event.startAt)}</span><span class="event-dot ${event.color}"></span><div><p class="item-title">${escapeHtml(event.title)}</p><p class="item-meta">${escapeHtml(event.description || "Không có ghi chú")}</p></div><button class="delete" data-delete-event="${event.id}" aria-label="Xoá sự kiện">×</button></article>`;
   return `<article class="calendar-event" data-color="${event.color}"><strong>${formatTime(event.startAt)}–${formatTime(event.endAt)}</strong><div><p class="item-title">${escapeHtml(event.title)}</p><p class="item-meta">${escapeHtml(event.description || "Không có ghi chú")}</p></div><button class="delete" data-delete-event="${event.id}" aria-label="Xoá sự kiện">×</button></article>`;
 }
 
 function renderToday() {
   const window = dashboardWindow(state.dashboardRange);
   const rangeTasks = [...state.tasks]
-    .filter((task) => task.dueAt ? isInsideWindow(task.dueAt, window) : state.dashboardRange === "day")
+    .filter((task) =>
+      task.dueAt
+        ? isInsideWindow(task.dueAt, window)
+        : state.dashboardRange === "day",
+    )
     .sort((a, b) => (a.dueAt || "z").localeCompare(b.dueAt || "z"));
   const rangeEvents = [...state.events]
-    .filter((event) => new Date(event.endAt) >= window.start && new Date(event.startAt) < window.end)
+    .filter(
+      (event) =>
+        new Date(event.endAt) >= window.start &&
+        new Date(event.startAt) < window.end,
+    )
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
   const done = rangeTasks.filter((task) => task.status === "DONE").length;
-  const progress = rangeTasks.length ? Math.round(done / rangeTasks.length * 100) : 0;
-  const dueInRange = rangeTasks.filter((task) => task.status !== "DONE" && task.dueAt).length;
+  const progress = rangeTasks.length
+    ? Math.round((done / rangeTasks.length) * 100)
+    : 0;
+  const dueInRange = rangeTasks.filter(
+    (task) => task.status !== "DONE" && task.dueAt,
+  ).length;
   const labels = {
     day: { label: "Hôm nay", eyebrow: "TỔNG QUAN NGÀY", noun: "hôm nay" },
     week: { label: "Tuần này", eyebrow: "TỔNG QUAN TUẦN", noun: "tuần này" },
-    month: { label: "Tháng này", eyebrow: "TỔNG QUAN THÁNG", noun: "tháng này" },
+    month: {
+      label: "Tháng này",
+      eyebrow: "TỔNG QUAN THÁNG",
+      noun: "tháng này",
+    },
   };
   const copy = labels[state.dashboardRange];
 
   document.querySelector("#range-label").textContent = copy.label;
   document.querySelector("#range-eyebrow").textContent = copy.eyebrow;
-  document.querySelector("#open-count").textContent = rangeTasks.filter((task) => task.status !== "DONE").length;
+  document.querySelector("#open-count").textContent = rangeTasks.filter(
+    (task) => task.status !== "DONE",
+  ).length;
   document.querySelector("#event-count").textContent = rangeEvents.length;
   document.querySelector("#due-count").textContent = dueInRange;
   document.querySelector("#progress-value").textContent = `${progress}%`;
-  document.querySelector(".progress-ring").style.setProperty("--progress", `${progress}%`);
-  document.querySelector("#focus-copy").textContent = rangeTasks.length ? `Bạn có ${rangeTasks.length - done} việc còn lại trong ${copy.noun}.` : `Bạn chưa có công việc nào cho ${copy.noun}.`;
-  document.querySelector("#today-tasks").innerHTML = rangeTasks.length ? rangeTasks.slice(0, 4).map((task) => taskHtml(task, true)).join("") : empty(`Chưa có công việc nào trong ${copy.noun}.`);
-  document.querySelector("#today-events").innerHTML = rangeEvents.length ? rangeEvents.slice(0, 4).map((event) => eventHtml(event, true)).join("") : empty(`Chưa có sự kiện nào trong ${copy.noun}.`);
+  document
+    .querySelector(".progress-ring")
+    .style.setProperty("--progress", `${progress}%`);
+  document.querySelector("#focus-copy").textContent = rangeTasks.length
+    ? `Bạn có ${rangeTasks.length - done} việc còn lại trong ${copy.noun}.`
+    : `Bạn chưa có công việc nào cho ${copy.noun}.`;
+  document.querySelector("#today-tasks").innerHTML = rangeTasks.length
+    ? rangeTasks
+        .slice(0, 4)
+        .map((task) => taskHtml(task, true))
+        .join("")
+    : empty(`Chưa có công việc nào trong ${copy.noun}.`);
+  document.querySelector("#today-events").innerHTML = rangeEvents.length
+    ? rangeEvents
+        .slice(0, 4)
+        .map((event) => eventHtml(event, true))
+        .join("")
+    : empty(`Chưa có sự kiện nào trong ${copy.noun}.`);
 }
 
 function renderTasks() {
-  const tasks = state.taskFilter === "ALL" ? state.tasks : state.tasks.filter((task) => task.status === state.taskFilter);
-  const sorted = [...tasks].sort((a, b) => Number(a.status === "DONE") - Number(b.status === "DONE") || (a.dueAt || "z").localeCompare(b.dueAt || "z"));
-  document.querySelector("#task-list").innerHTML = sorted.length ? sorted.map((task) => taskHtml(task)).join("") : empty("Không có công việc trong nhóm này.");
+  const tasks =
+    state.taskFilter === "ALL"
+      ? state.tasks
+      : state.tasks.filter((task) => task.status === state.taskFilter);
+  const sorted = [...tasks].sort(
+    (a, b) =>
+      Number(a.status === "DONE") - Number(b.status === "DONE") ||
+      (a.dueAt || "z").localeCompare(b.dueAt || "z"),
+  );
+  document.querySelector("#task-list").innerHTML = sorted.length
+    ? sorted.map((task) => taskHtml(task)).join("")
+    : empty("Không có công việc trong nhóm này.");
 }
 
 function renderCalendar() {
   const groups = new Map();
-  [...state.events].sort((a, b) => a.startAt.localeCompare(b.startAt)).forEach((event) => {
-    const key = new Date(event.startAt).toDateString();
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(event);
-  });
-  document.querySelector("#calendar-list").innerHTML = groups.size ? [...groups].map(([day, events]) => `<section class="calendar-day"><div class="calendar-day-heading">${formatDate(day, { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</div><div class="item-list">${events.map((event) => eventHtml(event)).join("")}</div></section>`).join("") : empty("Lịch đang trống. Hãy thêm sự kiện đầu tiên.");
+  [...state.events]
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+    .forEach((event) => {
+      const key = new Date(event.startAt).toDateString();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(event);
+    });
+  document.querySelector("#calendar-list").innerHTML = groups.size
+    ? [...groups]
+        .map(
+          ([day, events]) =>
+            `<section class="calendar-day"><div class="calendar-day-heading">${formatDate(day, { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</div><div class="item-list">${events.map((event) => eventHtml(event)).join("")}</div></section>`,
+        )
+        .join("")
+    : empty("Lịch đang trống. Hãy thêm sự kiện đầu tiên.");
 }
 
 function render() {
@@ -153,9 +277,21 @@ function render() {
 
 function switchView(view) {
   state.view = view;
-  document.querySelectorAll(".view").forEach((element) => element.classList.toggle("active", element.id === `${view}-view`));
-  document.querySelectorAll(".nav-item").forEach((element) => element.classList.toggle("active", element.dataset.view === view));
-  const titles = { today: "Dashboard của bạn.", tasks: "Tập trung vào điều quan trọng.", calendar: "Nhìn trước, sống trọn." };
+  document
+    .querySelectorAll(".view")
+    .forEach((element) =>
+      element.classList.toggle("active", element.id === `${view}-view`),
+    );
+  document
+    .querySelectorAll(".nav-item")
+    .forEach((element) =>
+      element.classList.toggle("active", element.dataset.view === view),
+    );
+  const titles = {
+    today: "Dashboard của bạn.",
+    tasks: "Tập trung vào điều quan trọng.",
+    calendar: "Nhìn trước, sống trọn.",
+  };
   document.querySelector("#page-title").textContent = titles[view];
 }
 
@@ -165,7 +301,10 @@ function openDialog(kind) {
     const start = new Date(Date.now() + 3_600_000);
     start.setMinutes(0, 0, 0);
     const end = new Date(start.getTime() + 3_600_000);
-    const toLocalInput = (date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    const toLocalInput = (date) =>
+      new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+        .toISOString()
+        .slice(0, 16);
     dialog.querySelector("[name=startAt]").value = toLocalInput(start);
     dialog.querySelector("[name=endAt]").value = toLocalInput(end);
   }
@@ -179,7 +318,8 @@ document.addEventListener("click", async (event) => {
   if (target.dataset.view) switchView(target.dataset.view);
   if (target.dataset.go) switchView(target.dataset.go);
   if (target.dataset.open) openDialog(target.dataset.open);
-  if (target.id === "quick-add") openDialog(state.view === "calendar" ? "event" : "task");
+  if (target.id === "quick-add")
+    openDialog(state.view === "calendar" ? "event" : "task");
   if (target.hasAttribute("data-close")) target.closest("dialog").close();
   if (target.dataset.range) {
     state.dashboardRange = target.dataset.range;
@@ -192,7 +332,11 @@ document.addEventListener("click", async (event) => {
   }
   if (target.dataset.filter) {
     state.taskFilter = target.dataset.filter;
-    document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button === target));
+    document
+      .querySelectorAll(".filter")
+      .forEach((button) =>
+        button.classList.toggle("active", button === target),
+      );
     renderTasks();
   }
 
@@ -203,23 +347,37 @@ document.addEventListener("click", async (event) => {
     }
     if (target.id === "test-notification") {
       target.disabled = true;
-      await api("/api/notifications/test", { method: "POST", body: JSON.stringify({}) });
+      await api("/api/notifications/test", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
       showToast("Đã gửi notification test.");
       await loadServiceStatus();
       target.disabled = false;
     }
     if (target.dataset.toggleTask) {
-      const task = state.tasks.find((item) => item.id === target.dataset.toggleTask);
-      await api(`/api/tasks/${task.id}`, { method: "PATCH", body: JSON.stringify({ status: task.status === "DONE" ? "TODO" : "DONE" }) });
+      const task = state.tasks.find(
+        (item) => item.id === target.dataset.toggleTask,
+      );
+      await api(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status: task.status === "DONE" ? "TODO" : "DONE",
+        }),
+      });
       await loadData();
     }
     if (target.dataset.deleteTask) {
-      await api(`/api/tasks/${target.dataset.deleteTask}`, { method: "DELETE" });
+      await api(`/api/tasks/${target.dataset.deleteTask}`, {
+        method: "DELETE",
+      });
       await loadData();
       showToast("Đã xoá công việc.");
     }
     if (target.dataset.deleteEvent) {
-      await api(`/api/events/${target.dataset.deleteEvent}`, { method: "DELETE" });
+      await api(`/api/events/${target.dataset.deleteEvent}`, {
+        method: "DELETE",
+      });
       await loadData();
       showToast("Đã xoá sự kiện.");
     }
@@ -237,24 +395,33 @@ function bindForm(kind) {
     errorElement.textContent = "";
     const data = Object.fromEntries(new FormData(form));
     try {
-      await api(`/api/${kind === "task" ? "tasks" : "events"}`, { method: "POST", body: JSON.stringify(data) });
+      await api(`/api/${kind === "task" ? "tasks" : "events"}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
       form.reset();
       form.closest("dialog").close();
       await loadData();
       showToast(kind === "task" ? "Đã thêm công việc." : "Đã thêm sự kiện.");
-    } catch (error) { errorElement.textContent = error.message; }
+    } catch (error) {
+      errorElement.textContent = error.message;
+    }
   });
 }
 
 const now = new Date();
-document.querySelector("#today-label").textContent = new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "long" }).format(now);
-const updateClock = () => document.querySelector("#clock").textContent = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+document.querySelector("#today-label").textContent = new Intl.DateTimeFormat(
+  "vi-VN",
+  { weekday: "long", day: "2-digit", month: "long" },
+).format(now);
+const updateClock = () =>
+  (document.querySelector("#clock").textContent = new Intl.DateTimeFormat(
+    "vi-VN",
+    { hour: "2-digit", minute: "2-digit" },
+  ).format(new Date()));
 updateClock();
 window.setInterval(updateClock, 30_000);
 bindForm("task");
 bindForm("event");
 loadData().catch((error) => showToast(error.message));
-loadServiceStatus().catch(() => {
-  const items = document.querySelectorAll(".service-item");
-  items.forEach((item) => setServiceState(item, "down", "Không thể kiểm tra"));
-});
+loadServiceStatus().catch(() => {});

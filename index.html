@@ -7,7 +7,10 @@
     <title>TikTo — Make time feel lighter</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div class="shell">
@@ -17,13 +20,44 @@
           <span>TikTo</span>
         </a>
         <nav aria-label="Điều hướng chính">
-          <button class="nav-item active" data-view="today"><span>▦</span> Dashboard</button>
-          <button class="nav-item" data-view="tasks"><span>✓</span> Công việc</button>
-          <button class="nav-item" data-view="calendar"><span>◇</span> Lịch</button>
+          <button class="nav-item active" data-view="today">
+            <span>▦</span> Dashboard
+          </button>
+          <button class="nav-item" data-view="tasks">
+            <span>✓</span> Công việc
+          </button>
+          <button class="nav-item" data-view="calendar">
+            <span>◇</span> Lịch
+          </button>
         </nav>
         <div class="sidebar-note">
-          <span class="pulse"></span>
-          <div><strong id="runtime-mode">LOCAL · v1.1.0</strong><small id="runtime-image">image: local · local db</small></div>
+          <div class="runtime-table">
+            <div class="runtime-row">
+              <span class="runtime-name">Frontend</span>
+              <strong id="frontend-version">v1.1.0</strong>
+              <span class="runtime-status" data-state="ready">Sẵn sàng</span>
+            </div>
+            <div class="runtime-row">
+              <span class="runtime-name">Backend</span>
+              <strong id="backend-version">—</strong>
+              <span
+                class="runtime-status"
+                id="backend-connection"
+                data-state="checking"
+                >Đang kiểm tra</span
+              >
+            </div>
+            <div class="runtime-row">
+              <span class="runtime-name">Notification</span>
+              <strong id="notification-version">—</strong>
+              <span
+                class="runtime-status"
+                id="notification-connection"
+                data-state="checking"
+                >Đang kiểm tra</span
+              >
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -45,31 +79,86 @@
               <p class="eyebrow">DASHBOARD</p>
               <strong id="range-label">Hôm nay</strong>
             </div>
-            <div class="range-switch" role="group" aria-label="Khoảng thời gian dashboard">
-              <button class="range-option active" type="button" data-range="day" aria-pressed="true">Day</button>
-              <button class="range-option" type="button" data-range="week" aria-pressed="false">Week</button>
-              <button class="range-option" type="button" data-range="month" aria-pressed="false">Month</button>
+            <div
+              class="range-switch"
+              role="group"
+              aria-label="Khoảng thời gian dashboard"
+            >
+              <button
+                class="range-option active"
+                type="button"
+                data-range="day"
+                aria-pressed="true"
+              >
+                Day
+              </button>
+              <button
+                class="range-option"
+                type="button"
+                data-range="week"
+                aria-pressed="false"
+              >
+                Week
+              </button>
+              <button
+                class="range-option"
+                type="button"
+                data-range="month"
+                aria-pressed="false"
+              >
+                Month
+              </button>
             </div>
           </div>
           <section class="service-card" aria-labelledby="service-title">
             <div class="service-heading">
               <div>
                 <p class="eyebrow">SYSTEM STATUS</p>
-                <h3 id="service-title">Database & Notification</h3>
+                <h3 id="service-title">Backend & Notification Health</h3>
               </div>
               <div class="service-actions">
-                <button class="secondary compact" type="button" id="refresh-services">Check health</button>
-                <button class="primary compact" type="button" id="test-notification">Test notification</button>
+                <button
+                  class="secondary compact"
+                  type="button"
+                  id="refresh-services"
+                >
+                  Check health
+                </button>
+                <button
+                  class="primary compact"
+                  type="button"
+                  id="test-notification"
+                >
+                  Test notification
+                </button>
               </div>
             </div>
-            <div class="service-grid" id="service-status" role="status" aria-live="polite">
+            <div
+              class="service-grid"
+              id="service-status"
+              role="status"
+              aria-live="polite"
+            >
               <div class="service-item" data-service-state="checking">
                 <span class="status-light"></span>
-                <div><strong>Database</strong><small id="database-health">Checking…</small></div>
+                <div>
+                  <strong>Backend</strong
+                  ><small id="backend-health">Checking…</small>
+                </div>
               </div>
               <div class="service-item" data-service-state="checking">
                 <span class="status-light"></span>
-                <div><strong>Notification</strong><small id="notification-health">Checking…</small></div>
+                <div>
+                  <strong>Database</strong
+                  ><small id="database-health">Checking…</small>
+                </div>
+              </div>
+              <div class="service-item" data-service-state="checking">
+                <span class="status-light"></span>
+                <div>
+                  <strong>Notification</strong
+                  ><small id="notification-health">Checking…</small>
+                </div>
               </div>
             </div>
           </section>
@@ -86,25 +175,63 @@
           </div>
 
           <div class="stats-grid">
-            <article><span class="stat-icon mint">✓</span><div><strong id="open-count">0</strong><small>Việc chưa xong</small></div></article>
-            <article><span class="stat-icon blue">◇</span><div><strong id="event-count">0</strong><small>Sự kiện trong kỳ</small></div></article>
-            <article><span class="stat-icon orange">!</span><div><strong id="due-count">0</strong><small>Đến hạn trong kỳ</small></div></article>
+            <article>
+              <span class="stat-icon mint">✓</span>
+              <div>
+                <strong id="open-count">0</strong><small>Việc chưa xong</small>
+              </div>
+            </article>
+            <article>
+              <span class="stat-icon blue">◇</span>
+              <div>
+                <strong id="event-count">0</strong
+                ><small>Sự kiện trong kỳ</small>
+              </div>
+            </article>
+            <article>
+              <span class="stat-icon orange">!</span>
+              <div>
+                <strong id="due-count">0</strong><small>Đến hạn trong kỳ</small>
+              </div>
+            </article>
           </div>
 
           <div class="content-grid">
             <section class="panel">
-              <div class="panel-heading"><div><p class="eyebrow">ƯU TIÊN</p><h3>Công việc gần nhất</h3></div><button class="text-button" data-go="tasks">Xem tất cả →</button></div>
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">ƯU TIÊN</p>
+                  <h3>Công việc gần nhất</h3>
+                </div>
+                <button class="text-button" data-go="tasks">
+                  Xem tất cả →
+                </button>
+              </div>
               <div id="today-tasks" class="item-list"></div>
             </section>
             <section class="panel warm">
-              <div class="panel-heading"><div><p class="eyebrow">TIẾP THEO</p><h3>Lịch trình</h3></div><button class="text-button" data-go="calendar">Mở lịch →</button></div>
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">TIẾP THEO</p>
+                  <h3>Lịch trình</h3>
+                </div>
+                <button class="text-button" data-go="calendar">
+                  Mở lịch →
+                </button>
+              </div>
               <div id="today-events" class="timeline"></div>
             </section>
           </div>
         </section>
 
         <section id="tasks-view" class="view">
-          <div class="section-heading"><div><p class="eyebrow">CÔNG VIỆC</p><h2>Mọi việc cần làm</h2></div><button class="primary" data-open="task">+ Công việc</button></div>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">CÔNG VIỆC</p>
+              <h2>Mọi việc cần làm</h2>
+            </div>
+            <button class="primary" data-open="task">+ Công việc</button>
+          </div>
           <div class="filter-row">
             <button class="filter active" data-filter="ALL">Tất cả</button>
             <button class="filter" data-filter="TODO">Cần làm</button>
@@ -115,7 +242,13 @@
         </section>
 
         <section id="calendar-view" class="view">
-          <div class="section-heading"><div><p class="eyebrow">LỊCH</p><h2>Những điều sắp tới</h2></div><button class="primary" data-open="event">+ Sự kiện</button></div>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">LỊCH</p>
+              <h2>Những điều sắp tới</h2>
+            </div>
+            <button class="primary" data-open="event">+ Sự kiện</button>
+          </div>
           <div id="calendar-list" class="calendar-list"></div>
         </section>
       </main>
@@ -123,30 +256,107 @@
 
     <dialog id="task-dialog">
       <form id="task-form">
-        <div class="dialog-heading"><div><p class="eyebrow">CÔNG VIỆC MỚI</p><h2>Thêm một việc cần làm</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng hộp thoại">×</button></div>
-        <label>Tiêu đề<input name="title" maxlength="120" required placeholder="Ví dụ: Hoàn thành báo cáo" /></label>
-        <label>Mô tả<textarea name="description" rows="3" maxlength="1000" placeholder="Ghi chú ngắn..."></textarea></label>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">CÔNG VIỆC MỚI</p>
+            <h2>Thêm một việc cần làm</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-close
+            aria-label="Đóng hộp thoại"
+          >
+            ×
+          </button>
+        </div>
+        <label
+          >Tiêu đề<input
+            name="title"
+            maxlength="120"
+            required
+            placeholder="Ví dụ: Hoàn thành báo cáo"
+        /></label>
+        <label
+          >Mô tả<textarea
+            name="description"
+            rows="3"
+            maxlength="1000"
+            placeholder="Ghi chú ngắn..."
+          ></textarea>
+        </label>
         <div class="form-grid">
-          <label>Hạn hoàn thành<input name="dueAt" type="datetime-local" /></label>
-          <label>Độ ưu tiên<select name="priority"><option value="LOW">Thấp</option><option value="MEDIUM" selected>Vừa</option><option value="HIGH">Cao</option></select></label>
+          <label
+            >Hạn hoàn thành<input name="dueAt" type="datetime-local"
+          /></label>
+          <label
+            >Độ ưu tiên<select name="priority">
+              <option value="LOW">Thấp</option>
+              <option value="MEDIUM" selected>Vừa</option>
+              <option value="HIGH">Cao</option>
+            </select></label
+          >
         </div>
         <p class="form-error" aria-live="polite"></p>
-        <div class="dialog-actions"><button type="button" class="secondary" data-close>Huỷ</button><button class="primary" type="submit">Lưu công việc</button></div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary" data-close>Huỷ</button
+          ><button class="primary" type="submit">Lưu công việc</button>
+        </div>
       </form>
     </dialog>
 
     <dialog id="event-dialog">
       <form id="event-form">
-        <div class="dialog-heading"><div><p class="eyebrow">SỰ KIỆN MỚI</p><h2>Đặt một khoảng thời gian</h2></div><button type="button" class="icon-button" data-close aria-label="Đóng hộp thoại">×</button></div>
-        <label>Tiêu đề<input name="title" maxlength="120" required placeholder="Ví dụ: Họp nhóm sản phẩm" /></label>
-        <label>Mô tả<textarea name="description" rows="3" maxlength="1000" placeholder="Thông tin cần nhớ..."></textarea></label>
-        <div class="form-grid">
-          <label>Bắt đầu<input name="startAt" type="datetime-local" required /></label>
-          <label>Kết thúc<input name="endAt" type="datetime-local" required /></label>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">SỰ KIỆN MỚI</p>
+            <h2>Đặt một khoảng thời gian</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-close
+            aria-label="Đóng hộp thoại"
+          >
+            ×
+          </button>
         </div>
-        <label>Màu sắc<select name="color"><option value="mint">Mint</option><option value="blue">Xanh</option><option value="orange">Cam</option><option value="pink">Hồng</option></select></label>
+        <label
+          >Tiêu đề<input
+            name="title"
+            maxlength="120"
+            required
+            placeholder="Ví dụ: Họp nhóm sản phẩm"
+        /></label>
+        <label
+          >Mô tả<textarea
+            name="description"
+            rows="3"
+            maxlength="1000"
+            placeholder="Thông tin cần nhớ..."
+          ></textarea>
+        </label>
+        <div class="form-grid">
+          <label
+            >Bắt đầu<input name="startAt" type="datetime-local" required
+          /></label>
+          <label
+            >Kết thúc<input name="endAt" type="datetime-local" required
+          /></label>
+        </div>
+        <label
+          >Màu sắc<select name="color">
+            <option value="mint">Mint</option>
+            <option value="blue">Xanh</option>
+            <option value="orange">Cam</option>
+            <option value="pink">Hồng</option>
+          </select></label
+        >
         <p class="form-error" aria-live="polite"></p>
-        <div class="dialog-actions"><button type="button" class="secondary" data-close>Huỷ</button><button class="primary" type="submit">Lưu sự kiện</button></div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary" data-close>Huỷ</button
+          ><button class="primary" type="submit">Lưu sự kiện</button>
+        </div>
       </form>
     </dialog>
 
